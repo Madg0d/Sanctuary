@@ -1,0 +1,225 @@
+
+import React, { useState, useEffect } from "react";
+import { InvokeLLM } from "@/api/integrations";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search, MapPin, RefreshCw, Sun, Cloud, CloudRain, Zap, CloudSnow } from "lucide-react";
+
+export default function Weather() {
+    const [location, setLocation] = useState("");
+    const [savedLocation, setSavedLocation] = useState("");
+    const [weatherData, setWeatherData] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const saved = localStorage.getItem("weather-location");
+        if (saved) {
+            setSavedLocation(saved);
+            fetchWeather(saved);
+        }
+    }, []);
+
+    const getWeatherIcon = (condition) => {
+        const icons = {
+            clear: Sun,
+            sunny: Sun,
+            cloudy: Cloud,
+            "partly cloudy": Cloud,
+            overcast: Cloud,
+            rain: CloudRain,
+            drizzle: CloudRain,
+            snow: CloudSnow,
+            thunderstorm: Zap,
+            storm: Zap
+        };
+
+        const conditionLower = condition?.toLowerCase() || "";
+        for (const [key, Icon] of Object.entries(icons)) {
+            if (conditionLower.includes(key)) {
+                return Icon;
+            }
+        }
+        return Cloud;
+    };
+
+    const fetchWeather = async (locationQuery) => {
+        if (!locationQuery.trim()) return;
+        
+        setLoading(true);
+        try {
+            const result = await InvokeLLM({
+                prompt: `Get current weather information for ${locationQuery}. Include current temperature, weather condition, humidity, wind speed, and a 5-day forecast. Always provide a 'feels_like' temperature. Ensure the 5-day forecast includes day name, high temp, low temp, and condition.`,
+                add_context_from_internet: true,
+                response_json_schema: {
+                    type: "object",
+                    properties: {
+                        location: { type: "string" },
+                        current: {
+                            type: "object",
+                            properties: {
+                                temperature: { type: "number" },
+                                condition: { type: "string" },
+                                humidity: { type: "number" },
+                                wind_speed: { type: "number" },
+                                feels_like: { type: "number" }
+                            }
+                        },
+                        forecast: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    day: { type: "string" },
+                                    high: { type: "number" },
+                                    low: { type: "number" },
+                                    condition: { type: "string" }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            setWeatherData(result);
+            localStorage.setItem("weather-location", locationQuery);
+            setSavedLocation(locationQuery);
+        } catch (error) {
+            console.error("Failed to fetch weather:", error);
+        }
+        setLoading(false);
+    };
+
+    const handleSearch = () => {
+        fetchWeather(location);
+    };
+
+    const refreshWeather = () => {
+        if (savedLocation) {
+            fetchWeather(savedLocation);
+        }
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold mb-2 tracking-wider text-white">WEATHER</h1>
+                <p className="text-zinc-400 text-sm">Current conditions and forecast</p>
+            </div>
+
+            {/* Search */}
+            <div className="flex space-x-3 mb-8">
+                <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                    <Input
+                        placeholder="Enter city or location..."
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                        className="pl-10 bg-zinc-900 border-zinc-700 text-white"
+                    />
+                </div>
+                <Button
+                    onClick={handleSearch}
+                    disabled={loading}
+                    className="bg-white text-black hover:bg-zinc-200"
+                >
+                    <Search className="w-4 h-4" />
+                </Button>
+                {savedLocation && (
+                    <Button
+                        onClick={refreshWeather}
+                        disabled={loading}
+                        variant="outline"
+                        className="border-zinc-700 text-white hover:bg-zinc-800"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    </Button>
+                )}
+            </div>
+
+            {loading && (
+                <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800 text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-zinc-400">Fetching weather data...</p>
+                </div>
+            )}
+
+            {weatherData && !loading && (
+                <div className="space-y-6">
+                    {/* Current Weather */}
+                    <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-2xl font-bold tracking-wide text-white">{weatherData.location}</h2>
+                                <p className="text-zinc-400 text-sm">Current conditions</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-4xl font-bold mb-2 text-white">{weatherData.current?.temperature}°C</div>
+                                {weatherData.current?.feels_like && (
+                                    <p className="text-zinc-400">Feels like {weatherData.current.feels_like}°C</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-8">
+                            <div className="flex items-center space-x-3">
+                                {React.createElement(getWeatherIcon(weatherData.current?.condition), {
+                                    className: "w-8 h-8 text-white"
+                                })}
+                                <span className="text-lg text-white">{weatherData.current?.condition}</span>
+                            </div>
+                            <div className="text-sm text-zinc-400">
+                                Humidity: {weatherData.current?.humidity}%
+                            </div>
+                            <div className="text-sm text-zinc-400">
+                                Wind: {weatherData.current?.wind_speed} km/h
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 5-Day Forecast */}
+                    <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+                        <h3 className="text-xl font-bold mb-6 tracking-wide text-white">5-DAY FORECAST</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                            {weatherData.forecast?.slice(0, 5).map((day, index) => (
+                                <div key={index} className="flex flex-col p-4 rounded-lg bg-zinc-800 text-center h-80">
+                                    {/* Day Name - Fixed height */}
+                                    <div className="h-12 flex items-center justify-center mb-4">
+                                        <p className="font-medium text-zinc-300 text-sm leading-tight">{day.day}</p>
+                                    </div>
+                                    
+                                    {/* Icon - Fixed position */}
+                                    <div className="h-16 flex items-center justify-center mb-4">
+                                        {React.createElement(getWeatherIcon(day.condition), {
+                                            className: "w-12 h-12 text-white"
+                                        })}
+                                    </div>
+                                    
+                                    {/* Temps - Fixed position */}
+                                    <div className="h-16 flex flex-col items-center justify-center mb-4">
+                                        <span className="text-2xl font-bold text-white">{day.high}°C</span>
+                                        <span className="text-lg text-zinc-400">{day.low}°C</span>
+                                    </div>
+                                    
+                                    {/* Condition Text - Takes remaining space */}
+                                    <div className="flex-1 flex items-start justify-center">
+                                        <p className="text-xs text-zinc-400 leading-snug text-center">
+                                            {day.condition}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {!weatherData && !loading && (
+                <div className="bg-zinc-900 rounded-2xl p-12 border border-zinc-800 text-center">
+                    <Cloud className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                    <p className="text-zinc-400">Search for a location to see weather conditions</p>
+                </div>
+            )}
+        </div>
+    );
+}

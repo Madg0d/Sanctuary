@@ -1,0 +1,449 @@
+
+import React, { useState, useEffect } from "react";
+import { Note } from "@/api/entities";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Plus, Target, Calendar, CheckCircle, Circle, Trash2 } from "lucide-react";
+
+export default function Goals() {
+    const [goals, setGoals] = useState([]);
+    const [showForm, setShowForm] = useState(false);
+    const [filter, setFilter] = useState("all");
+    const [newGoal, setNewGoal] = useState({
+        title: "",
+        description: "",
+        category: "personal",
+        priority: "medium",
+        deadline: "",
+        progress: 0,
+        status: "in_progress",
+        milestones: []
+    });
+    const [newMilestone, setNewMilestone] = useState("");
+
+    const categories = ["personal", "career", "health", "finance", "learning", "relationships"];
+    const priorities = ["low", "medium", "high"];
+    const statuses = [
+        { value: "not_started", label: "Not Started", color: "text-zinc-400" },
+        { value: "in_progress", label: "In Progress", color: "text-blue-400" },
+        { value: "completed", label: "Completed", color: "text-green-400" },
+        { value: "paused", label: "Paused", color: "text-yellow-400" }
+    ];
+
+    useEffect(() => {
+        loadGoals();
+    }, []);
+
+    const loadGoals = async () => {
+        try {
+            const noteData = await Note.filter({ title: { $regex: "^GOAL:" } }, "-updated_date");
+            const parsedGoals = noteData.map(note => ({
+                id: note.id,
+                ...JSON.parse(note.content)
+            }));
+            setGoals(parsedGoals);
+        } catch (error) {
+            console.error("Failed to load goals:", error);
+        }
+    };
+
+    const saveGoal = async () => {
+        if (!newGoal.title) return;
+
+        try {
+            const goalData = {
+                ...newGoal,
+                dateCreated: new Date().toISOString(),
+                progress: parseInt(newGoal.progress) || 0
+            };
+            
+            const title = `GOAL: ${goalData.title}`;
+            
+            await Note.create({
+                title,
+                content: JSON.stringify(goalData)
+            });
+            
+            setNewGoal({
+                title: "",
+                description: "",
+                category: "personal",
+                priority: "medium",
+                deadline: "",
+                progress: 0,
+                status: "in_progress",
+                milestones: []
+            });
+            
+            setShowForm(false);
+            loadGoals();
+        } catch (error) {
+            console.error("Failed to save goal:", error);
+        }
+    };
+
+    const updateGoalProgress = async (goal, newProgress) => {
+        const updatedGoal = { 
+            ...goal, 
+            progress: Math.min(Math.max(0, newProgress), 100),
+            status: newProgress >= 100 ? "completed" : goal.status
+        };
+        
+        try {
+            await Note.update(goal.id, {
+                title: `GOAL: ${goal.title}`,
+                content: JSON.stringify(updatedGoal)
+            });
+            loadGoals();
+        } catch (error) {
+            console.error("Failed to update progress:", error);
+        }
+    };
+
+    const deleteGoal = async (goalId) => {
+        try {
+            await Note.delete(goalId);
+            loadGoals();
+        } catch (error) {
+            console.error("Failed to delete goal:", error);
+        }
+    };
+
+    const addMilestone = () => {
+        if (!newMilestone.trim()) return;
+        setNewGoal(prev => ({
+            ...prev,
+            milestones: [...prev.milestones, { text: newMilestone, completed: false }]
+        }));
+        setNewMilestone("");
+    };
+
+    const removeMilestone = (index) => {
+        setNewGoal(prev => ({
+            ...prev,
+            milestones: prev.milestones.filter((_, i) => i !== index)
+        }));
+    };
+
+    const filteredGoals = goals.filter(goal => {
+        if (filter === "all") return true;
+        return goal.status === filter;
+    });
+
+    const stats = {
+        total: goals.length,
+        completed: goals.filter(g => g.status === "completed").length,
+        inProgress: goals.filter(g => g.status === "in_progress").length,
+        avgProgress: goals.length > 0 ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length) : 0
+    };
+
+    const getPriorityColor = (priority) => {
+        switch (priority) {
+            case "high": return "text-red-400";
+            case "medium": return "text-yellow-400";
+            case "low": return "text-green-400";
+            default: return "text-zinc-400";
+        }
+    };
+
+    return (
+        <div className="max-w-6xl mx-auto">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold mb-2 tracking-wider text-white">GOALS</h1>
+                <p className="text-zinc-400 text-sm">Track your aspirations and achievements</p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid md:grid-cols-4 gap-4 mb-8">
+                <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center space-x-2">
+                            <Target className="w-5 h-5 text-zinc-400" />
+                            <div>
+                                <p className="text-2xl font-bold text-white">{stats.total}</p>
+                                <p className="text-xs text-zinc-400">Total Goals</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center space-x-2">
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <div>
+                                <p className="text-2xl font-bold text-white">{stats.completed}</p>
+                                <p className="text-xs text-zinc-400">Completed</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center space-x-2">
+                            <Circle className="w-5 h-5 text-blue-400" />
+                            <div>
+                                <p className="text-2xl font-bold text-white">{stats.inProgress}</p>
+                                <p className="text-xs text-zinc-400">In Progress</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center space-x-2">
+                            <Target className="w-5 h-5 text-purple-400" />
+                            <div>
+                                <p className="text-2xl font-bold text-white">{stats.avgProgress}%</p>
+                                <p className="text-xs text-zinc-400">Avg Progress</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Controls */}
+            <div className="flex justify-between items-center mb-6">
+                <Select value={filter} onValueChange={setFilter}>
+                    <SelectTrigger className="w-48 bg-zinc-900 border-zinc-700 text-white">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Goals</SelectItem>
+                        {statuses.map(status => (
+                            <SelectItem key={status.value} value={status.value}>
+                                {status.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                
+                <Button
+                    onClick={() => setShowForm(true)}
+                    className="bg-white text-black hover:bg-zinc-200"
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Goal
+                </Button>
+            </div>
+
+            {/* Goals Grid */}
+            <div className="grid md:grid-cols-2 gap-6">
+                {filteredGoals.map(goal => {
+                    const statusInfo = statuses.find(s => s.value === goal.status);
+                    const isOverdue = goal.deadline && new Date(goal.deadline) < new Date() && goal.status !== "completed";
+                    
+                    return (
+                        <Card key={goal.id} className="bg-zinc-900 border-zinc-800">
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <CardTitle className="text-lg mb-1 text-white">{goal.title}</CardTitle>
+                                        <p className="text-zinc-400 text-sm mb-2">{goal.description}</p>
+                                        <div className="flex items-center space-x-4 text-xs">
+                                            <span className={statusInfo?.color}>{statusInfo?.label}</span>
+                                            <span className={getPriorityColor(goal.priority)}>
+                                                {goal.priority} priority
+                                            </span>
+                                            <span className="text-zinc-500 capitalize">{goal.category}</span>
+                                        </div>
+                                        {goal.deadline && (
+                                            <div className={`text-xs mt-1 flex items-center space-x-1 ${isOverdue ? 'text-red-400' : 'text-zinc-500'}`}>
+                                                <Calendar className="w-3 h-3" />
+                                                <span>Due: {new Date(goal.deadline).toLocaleDateString()}</span>
+                                                {isOverdue && <span>(Overdue)</span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => deleteGoal(goal.id)}
+                                        className="text-zinc-500 hover:text-red-500"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            
+                            <CardContent>
+                                <div className="mb-4">
+                                    <div className="flex justify-between text-sm mb-1 text-white">
+                                        <span>Progress</span>
+                                        <span>{goal.progress}%</span>
+                                    </div>
+                                    <Progress value={goal.progress} className="h-2 [&>*]:bg-white" />
+                                </div>
+                                
+                                {goal.milestones && goal.milestones.length > 0 && (
+                                    <div className="mb-4">
+                                        <h4 className="text-sm font-medium mb-2">Milestones</h4>
+                                        <div className="space-y-1">
+                                            {goal.milestones.map((milestone, index) => (
+                                                <div key={index} className="flex items-center space-x-2 text-sm">
+                                                    {milestone.completed ? (
+                                                        <CheckCircle className="w-3 h-3 text-green-400" />
+                                                    ) : (
+                                                        <Circle className="w-3 h-3 text-zinc-500" />
+                                                    )}
+                                                    <span className={milestone.completed ? "line-through text-zinc-500" : ""}>
+                                                        {milestone.text}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {goal.status !== "completed" && (
+                                    <div className="flex space-x-2">
+                                        <Button
+                                            size="sm"
+                                            onClick={() => updateGoalProgress(goal, goal.progress + 10)}
+                                            className="bg-zinc-700 text-white hover:bg-zinc-600 flex-1"
+                                        >
+                                            +10%
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            onClick={() => updateGoalProgress(goal, 100)}
+                                            className="bg-green-600 text-white hover:bg-green-500"
+                                        >
+                                            Complete
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
+
+            {filteredGoals.length === 0 && (
+                <div className="text-center py-12">
+                    <Target className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                    <p className="text-zinc-400">No goals found. Set your first goal to get started!</p>
+                </div>
+            )}
+
+            {/* Add Goal Modal */}
+            {showForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div className="bg-zinc-900 rounded-2xl p-6 w-full max-w-md border border-zinc-800 max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-bold mb-6 tracking-wide text-white">ADD GOAL</h3>
+                        <div className="space-y-4">
+                            <Input
+                                placeholder="Goal title"
+                                value={newGoal.title}
+                                onChange={(e) => setNewGoal(prev => ({ ...prev, title: e.target.value }))}
+                                className="bg-zinc-800 border-zinc-700 text-white"
+                            />
+                            <Textarea
+                                placeholder="Description"
+                                value={newGoal.description}
+                                onChange={(e) => setNewGoal(prev => ({ ...prev, description: e.target.value }))}
+                                className="bg-zinc-800 border-zinc-700 text-white"
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <Select
+                                    value={newGoal.category}
+                                    onValueChange={(value) => setNewGoal(prev => ({ ...prev, category: value }))}
+                                >
+                                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map(cat => (
+                                            <SelectItem key={cat} value={cat} className="capitalize">
+                                                {cat}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select
+                                    value={newGoal.priority}
+                                    onValueChange={(value) => setNewGoal(prev => ({ ...prev, priority: value }))}
+                                >
+                                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {priorities.map(priority => (
+                                            <SelectItem key={priority} value={priority} className="capitalize">
+                                                {priority}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Input
+                                type="date"
+                                value={newGoal.deadline}
+                                onChange={(e) => setNewGoal(prev => ({ ...prev, deadline: e.target.value }))}
+                                className="bg-zinc-800 border-zinc-700 text-white"
+                            />
+                            
+                            {/* Milestones */}
+                            <div>
+                                <label className="block text-sm text-zinc-400 mb-2">Milestones</label>
+                                <div className="flex space-x-2 mb-2">
+                                    <Input
+                                        placeholder="Add milestone"
+                                        value={newMilestone}
+                                        onChange={(e) => setNewMilestone(e.target.value)}
+                                        className="bg-zinc-800 border-zinc-700 text-white flex-1"
+                                    />
+                                    <Button
+                                        onClick={addMilestone}
+                                        className="bg-zinc-700 text-white hover:bg-zinc-600"
+                                    >
+                                        Add
+                                    </Button>
+                                </div>
+                                {newGoal.milestones.length > 0 && (
+                                    <div className="space-y-1">
+                                        {newGoal.milestones.map((milestone, index) => (
+                                            <div key={index} className="flex items-center justify-between p-2 bg-zinc-800 rounded text-sm">
+                                                <span>{milestone.text}</span>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => removeMilestone(index)}
+                                                    className="text-zinc-500 hover:text-red-500"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex justify-end space-x-3 mt-6">
+                            <Button
+                                onClick={() => setShowForm(false)}
+                                variant="outline"
+                                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={saveGoal}
+                                className="bg-white text-black hover:bg-zinc-200"
+                            >
+                                Add Goal
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
