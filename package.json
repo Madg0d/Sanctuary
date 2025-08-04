@@ -1,0 +1,55 @@
+{
+  "name": "sanctuary-app",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "tailwindcss": "^3.4.3",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-select": "^2.0.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0",
+    "lucide-react": "^0.378.0",
+    "moment": "^2.30.1",
+    "recharts": "^2.12.7",
+    "react-quill": "^2.0.0",
+    "react-hook-form": "^7.51.4",
+    "react-router-dom": "^6.23.1",
+    "date-fns": "^3.6.0",
+    "lodash": "^4.17.21",
+    "react-markdown": "^9.0.1",
+    "three": "^0.164.1",
+    "react-leaflet": "^4.2.1",
+    "leaflet": "^1.9.4",
+    "@hello-pangea/dnd": "^16.6.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
