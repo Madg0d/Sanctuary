@@ -1,0 +1,16 @@
+{
+  "name": "FavoriteQuote",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "author"
+  ]
+}
