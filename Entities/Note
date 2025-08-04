@@ -1,0 +1,23 @@
+{
+  "name": "Note",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the note"
+    },
+    "content": {
+      "type": "string",
+      "description": "Note content"
+    },
+    "is_pinned": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the note is pinned"
+    }
+  },
+  "required": [
+    "title",
+    "content"
+  ]
+}
